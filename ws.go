@@ -57,6 +57,10 @@ func (ws *WS) Subscribe(ctx context.Context) error {
 	defer resp.Body.Close()
 
 	conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
+	conn.SetPongHandler(func(string) error {
+		conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
+		return nil
+	})
 
 	done := make(chan struct{}, 1)
 
@@ -104,6 +108,8 @@ func (ws *WS) ping(ctx context.Context, conn *websocket.Conn, done chan struct{}
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				ws.logger.Printf("Failed to write ping message: %v", err)
 				return
+			} else {
+				conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
 			}
 		}
 	}

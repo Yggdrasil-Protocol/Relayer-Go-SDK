@@ -116,9 +116,11 @@ func (ws *WS) ping(ctx context.Context) {
 }
 
 func (ws *WS) Close() {
-	_, ok := (<-ws.done)
-	if !ok {
-		return
+	select {
+	case _, ok := <-ws.done:
+		if !ok {
+			return
+		}
 	}
 
 	ws.done <- struct{}{}

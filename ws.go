@@ -56,6 +56,11 @@ func (ws *WS) Subscribe(ctx context.Context) error {
 
 	conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
 
+	done := make(chan struct{}, 1)
+
+	go ws.read(conn, done)
+	go ws.ping(ctx, conn, done)
+
 	return nil
 }
 
@@ -63,14 +68,35 @@ func (ws *WS) Consume() (chan<- DataFeed, chan<- SubscriptionMsg) {
 	return ws.priceEventsChan, ws.infoEventsChan
 }
 
-func (ws *WS) Ping(ctx context.Context, conn *websocket.Conn, done chan<- struct{}) {
+func (ws *WS) read(conn *websocket.Conn, done chan struct{}) {
+	defer ws.Close(conn, done)
+
+	for {
+		_, data, err := conn.ReadMessage()
+		if err != nil {
+			ws.logger.Printf("Failed to read message: %v", err)
+			return
+		}
+
+		err = sendEvent(data, ws.priceEventsChan, ws.infoEventsChan)
+		if err != nil {
+			ws.logger.Printf("Failed to send event to chan: %v", err)
+			continue
+		}
+	}
+}
+
+func (ws *WS) ping(ctx context.Context, conn *websocket.Conn, done chan struct{}) {
+	defer ws.Close(conn, done)
+
 	ticker := time.NewTicker(config.PingInterval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			ws.Close(conn, done)
+			return
+		case <-done:
 			return
 		case <-ticker.C:
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -81,7 +107,12 @@ func (ws *WS) Ping(ctx context.Context, conn *websocket.Conn, done chan<- struct
 	}
 }
 
-func (ws *WS) Close(conn *websocket.Conn, done chan<- struct{}) {
+func (ws *WS) Close(conn *websocket.Conn, done chan struct{}) {
+	_, ok := (<-done)
+	if !ok {
+		return
+	}
+
 	done <- struct{}{}
 
 	err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))

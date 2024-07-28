@@ -4,7 +4,7 @@ import "time"
 
 const (
 	// WS URL Constants
-	BaseWSUrl   = "ws://localhost:4000"
+	BaseWSUrl   = "wss://feeds.yggdrasilprotocol.io"
 	EndpointUrl = "/v1/ws"
 
 	// SDK Constants

@@ -22,7 +22,7 @@ type WS struct {
 func NewWS(feedIDs []string, logger *log.Logger, dialer *websocket.Dialer) *WS {
 	ws := &WS{
 		url: &url.URL{
-			Scheme:   "ws",
+			Scheme:   "wss",
 			Host:     config.BaseWSUrl,
 			Path:     config.EndpointUrl,
 			RawQuery: "feedIDs=" + strings.Join(feedIDs, ","),

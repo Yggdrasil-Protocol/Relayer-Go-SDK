@@ -18,6 +18,7 @@ type WS struct {
 	dialer          *websocket.Dialer
 	logger          *log.Logger
 	conn            *websocket.Conn
+	done            chan struct{}
 }
 
 func NewWS(feedIDs []string, logger *log.Logger, dialer *websocket.Dialer) *WS {
@@ -49,6 +50,7 @@ func (ws *WS) Subscribe(ctx context.Context) error {
 		return err
 	}
 	ws.conn = conn
+	ws.done = make(chan struct{}, 1)
 
 	if resp.StatusCode != 101 {
 		ws.logger.Printf("Failed to upgrade connection to websocket: %v", resp.Status)
@@ -62,10 +64,8 @@ func (ws *WS) Subscribe(ctx context.Context) error {
 		return nil
 	})
 
-	done := make(chan struct{}, 1)
-
-	go ws.read(conn, done)
-	go ws.ping(ctx, conn, done)
+	go ws.read()
+	go ws.ping(ctx)
 
 	return nil
 }
@@ -74,11 +74,11 @@ func (ws *WS) Consume() (<-chan DataFeed, <-chan SubscriptionMsg) {
 	return ws.priceEventsChan, ws.infoEventsChan
 }
 
-func (ws *WS) read(conn *websocket.Conn, done chan struct{}) {
-	defer ws.Close(conn, done)
+func (ws *WS) read() {
+	defer ws.Close()
 
 	for {
-		_, data, err := conn.ReadMessage()
+		_, data, err := ws.conn.ReadMessage()
 		if err != nil {
 			ws.logger.Printf("Failed to read message: %v", err)
 			return
@@ -92,8 +92,8 @@ func (ws *WS) read(conn *websocket.Conn, done chan struct{}) {
 	}
 }
 
-func (ws *WS) ping(ctx context.Context, conn *websocket.Conn, done chan struct{}) {
-	defer ws.Close(conn, done)
+func (ws *WS) ping(ctx context.Context) {
+	defer ws.Close()
 
 	ticker := time.NewTicker(config.PingInterval)
 	defer ticker.Stop()
@@ -102,35 +102,35 @@ func (ws *WS) ping(ctx context.Context, conn *websocket.Conn, done chan struct{}
 		select {
 		case <-ctx.Done():
 			return
-		case <-done:
+		case <-ws.done:
 			return
 		case <-ticker.C:
-			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if err := ws.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				ws.logger.Printf("Failed to write ping message: %v", err)
 				return
 			} else {
-				conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
+				ws.conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
 			}
 		}
 	}
 }
 
-func (ws *WS) Close(conn *websocket.Conn, done chan struct{}) {
-	_, ok := (<-done)
+func (ws *WS) Close() {
+	_, ok := (<-ws.done)
 	if !ok {
 		return
 	}
 
-	done <- struct{}{}
+	ws.done <- struct{}{}
 
-	err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	err := ws.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	if err != nil {
 		ws.logger.Printf("Failed to write close message: %v", err)
 	} else {
 		ws.logger.Println("Connection closed")
 	}
 
-	conn.Close()
+	ws.conn.Close()
 	close(ws.priceEventsChan)
 	close(ws.infoEventsChan)
 }

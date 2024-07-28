@@ -64,7 +64,7 @@ func (ws *WS) Subscribe(ctx context.Context) error {
 	return nil
 }
 
-func (ws *WS) Consume() (chan<- DataFeed, chan<- SubscriptionMsg) {
+func (ws *WS) Consume() (<-chan DataFeed, <-chan SubscriptionMsg) {
 	return ws.priceEventsChan, ws.infoEventsChan
 }
 

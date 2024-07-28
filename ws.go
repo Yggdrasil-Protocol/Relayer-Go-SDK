@@ -17,6 +17,7 @@ type WS struct {
 	infoEventsChan  chan SubscriptionMsg
 	dialer          *websocket.Dialer
 	logger          *log.Logger
+	conn            *websocket.Conn
 }
 
 func NewWS(feedIDs []string, logger *log.Logger, dialer *websocket.Dialer) *WS {
@@ -30,6 +31,7 @@ func NewWS(feedIDs []string, logger *log.Logger, dialer *websocket.Dialer) *WS {
 		priceEventsChan: make(chan DataFeed, config.EventChanSize),
 		infoEventsChan:  make(chan SubscriptionMsg, config.EventChanSize),
 		logger:          logger,
+		conn:            nil,
 	}
 
 	if dialer == nil {
@@ -46,7 +48,7 @@ func (ws *WS) Subscribe(ctx context.Context) error {
 		ws.logger.Printf("Failed to connect to %s: %v", ws.url.String(), err)
 		return err
 	}
-	defer conn.Close()
+	ws.conn = conn
 
 	if resp.StatusCode != 101 {
 		ws.logger.Printf("Failed to upgrade connection to websocket: %v", resp.Status)

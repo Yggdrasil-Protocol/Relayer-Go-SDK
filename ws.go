@@ -58,10 +58,10 @@ func (ws *WS) Subscribe(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 
-	conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
+	conn.NetConn().SetDeadline(time.Now().Add(config.PingTimeout))
 	conn.SetPongHandler(func(string) error {
 		ws.logger.Println("Hearbeat Pong Received")
-		conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
+		conn.NetConn().SetDeadline(time.Now().Add(config.PingTimeout))
 		return nil
 	})
 
@@ -115,7 +115,7 @@ func (ws *WS) ping(ctx context.Context) {
 				return
 			} else {
 				ws.logger.Println("Hearbeat Ping Sent")
-				ws.conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
+				ws.conn.NetConn().SetDeadline(time.Now().Add(config.PingTimeout))
 			}
 		}
 	}

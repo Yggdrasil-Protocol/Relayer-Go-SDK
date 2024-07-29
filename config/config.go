@@ -9,6 +9,6 @@ const (
 
 	// SDK Constants
 	PingInterval  = 30 * time.Second
-	PongWait      = 60 * time.Second
+	PingTimeout   = 60 * time.Second
 	EventChanSize = 1024
 )

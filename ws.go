@@ -80,6 +80,9 @@ func (ws *WS) read() {
 
 	for {
 		msgType, data, err := ws.conn.ReadMessage()
+		if isClosed(ws.done) {
+			return
+		}
 		if err != nil {
 			ws.logger.Printf("Failed to read message (type=%v): %v", msgType, err)
 			return

@@ -2,7 +2,7 @@ module github.com/Yggdrasil-Protocol/Relayer-Go-SDK/examples
 
 go 1.22.3
 
-require github.com/Yggdrasil-Protocol/Relayer-Go-SDK v0.1.1
+require github.com/Yggdrasil-Protocol/Relayer-Go-SDK v0.1.2
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect

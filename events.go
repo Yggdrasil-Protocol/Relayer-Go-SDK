@@ -48,7 +48,7 @@ func sendEvent(data []byte, priceFeedChan chan<- DataFeed, subscriptionMsgChan c
 			return err
 		}
 		subscriptionMsgChan <- subscriptionMsg
-	case "unsubscribe-failed":
+	case "subscribe-failed":
 		return &SubscribeFailed{}
 	default:
 		return &InvalidEvent{}

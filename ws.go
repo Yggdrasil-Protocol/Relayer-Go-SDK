@@ -60,6 +60,7 @@ func (ws *WS) Subscribe(ctx context.Context) error {
 
 	conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
 	conn.SetPongHandler(func(string) error {
+		ws.logger.Println("Hearbeat Pong Received")
 		conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
 		return nil
 	})
@@ -78,16 +79,16 @@ func (ws *WS) read() {
 	defer ws.Close()
 
 	for {
-		_, data, err := ws.conn.ReadMessage()
+		msgType, data, err := ws.conn.ReadMessage()
 		if err != nil {
-			ws.logger.Printf("Failed to read message: %v", err)
+			ws.logger.Printf("Failed to read message (type=%v): %v", msgType, err)
 			return
 		}
 
 		err = sendEvent(data, ws.priceEventsChan, ws.infoEventsChan)
 		if err != nil {
 			ws.logger.Printf("Failed to send event to chan: %v", err)
-			continue
+			return
 		}
 	}
 }
@@ -101,29 +102,37 @@ func (ws *WS) ping(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			ws.logger.Println("Context Done")
 			return
 		case <-ws.done:
 			return
 		case <-ticker.C:
-			if err := ws.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if err := ws.conn.WriteMessage(websocket.PingMessage, []byte("PING")); err != nil {
 				ws.logger.Printf("Failed to write ping message: %v", err)
 				return
 			} else {
+				ws.logger.Println("Hearbeat Ping Sent")
 				ws.conn.NetConn().SetDeadline(time.Now().Add(config.PongWait))
 			}
 		}
 	}
 }
 
-func (ws *WS) Close() {
+func isClosed(ch <-chan struct{}) bool {
 	select {
-	case _, ok := <-ws.done:
-		if !ok {
-			return
-		}
+	case <-ch:
+		return true
+	default:
 	}
 
-	ws.done <- struct{}{}
+	return false
+}
+
+func (ws *WS) Close() {
+	if isClosed(ws.done) {
+		return
+	}
+	close(ws.done)
 
 	err := ws.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	if err != nil {

@@ -19,16 +19,16 @@ func main() {
 	ws := rel.NewWS(feedIDs, logger, nil)
 	defer ws.Close()
 
-	priceChan, infoChan := ws.Consume()
+	dataChan, infoChan := ws.Consume()
 
 	err := ws.Subscribe(ctx)
 	if err != nil {
-		logger.Printf("Failed to subscribe: %v", err)
+		logger.Panicf("Failed to subscribe: %v", err)
 	}
 
 	for {
 		select {
-		case price, ok := <-priceChan:
+		case price, ok := <-dataChan:
 			if !ok {
 				return
 			}

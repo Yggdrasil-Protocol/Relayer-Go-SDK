@@ -12,13 +12,13 @@ import (
 )
 
 type WS struct {
-	url             *url.URL
-	priceEventsChan chan DataFeed
-	infoEventsChan  chan SubscriptionMsg
-	dialer          *websocket.Dialer
-	logger          *log.Logger
-	conn            *websocket.Conn
-	done            chan struct{}
+	url            *url.URL
+	dataEventsChan chan DataFeed
+	infoEventsChan chan SubscriptionMsg
+	dialer         *websocket.Dialer
+	logger         *log.Logger
+	conn           *websocket.Conn
+	done           chan struct{}
 }
 
 func NewWS(feedIDs []string, logger *log.Logger, dialer *websocket.Dialer) *WS {
@@ -29,10 +29,10 @@ func NewWS(feedIDs []string, logger *log.Logger, dialer *websocket.Dialer) *WS {
 			Path:     config.EndpointUrl,
 			RawQuery: "feedIDs=" + strings.Join(feedIDs, ","),
 		},
-		priceEventsChan: make(chan DataFeed, config.EventChanSize),
-		infoEventsChan:  make(chan SubscriptionMsg, config.EventChanSize),
-		logger:          logger,
-		conn:            nil,
+		dataEventsChan: make(chan DataFeed, config.EventChanSize),
+		infoEventsChan: make(chan SubscriptionMsg, config.EventChanSize),
+		logger:         logger,
+		conn:           nil,
 	}
 
 	if dialer == nil {
@@ -72,7 +72,7 @@ func (ws *WS) Subscribe(ctx context.Context) error {
 }
 
 func (ws *WS) Consume() (<-chan DataFeed, <-chan SubscriptionMsg) {
-	return ws.priceEventsChan, ws.infoEventsChan
+	return ws.dataEventsChan, ws.infoEventsChan
 }
 
 func (ws *WS) read() {
@@ -88,7 +88,7 @@ func (ws *WS) read() {
 			return
 		}
 
-		err = sendEvent(data, ws.priceEventsChan, ws.infoEventsChan)
+		err = sendEvent(data, ws.dataEventsChan, ws.infoEventsChan)
 		if err != nil {
 			ws.logger.Printf("Failed to send event to chan: %v", err)
 			return
@@ -145,6 +145,6 @@ func (ws *WS) Close() {
 	}
 
 	ws.conn.Close()
-	close(ws.priceEventsChan)
+	close(ws.dataEventsChan)
 	close(ws.infoEventsChan)
 }
